@@ -1,0 +1,839 @@
+<!DOCTYPE html>
+<html lang="pt">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>KeY Invest - Gestão de Ativos com AI</title>
+  
+  <!-- Tailwind CSS -->
+  <script src="https://cdn.tailwindcss.com"></script>
+  
+  <!-- Font Awesome -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/font-awesome/6.4.0/css/all.min.css" rel="stylesheet">
+  
+  <!-- Flatpickr (Calendário) -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/flatpickr/dist/flatpickr.min.css">
+  <link rel="stylesheet" type="text/css" href="https://npmcdn.com/flatpickr/dist/themes/dark.css">
+  <script src="https://cdn.jsdelivr.net/npm/flatpickr"></script>
+  <script src="https://npmcdn.com/flatpickr/dist/l10n/pt.js"></script>
+  
+  <!-- Chart.js -->
+  <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+  <!-- Google Fonts (Inter para um visual mais limpo) -->
+  <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+  
+  <!-- Markdown Parser para respostas da AI -->
+  <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+
+  <style>
+    /* Configurações Globais e Fonte */
+    body {
+      font-family: 'Inter', sans-serif;
+      transition: background-color 0.3s ease, color 0.3s ease;
+    }
+    
+    /* Scrollbar Personalizada */
+    .hide-scrollbar::-webkit-scrollbar {
+        height: 4px;
+    }
+    .hide-scrollbar::-webkit-scrollbar-track {
+        background: transparent;
+    }
+    .hide-scrollbar::-webkit-scrollbar-thumb {
+        background-color: rgba(156, 163, 175, 0.5);
+        border-radius: 20px;
+    }
+    
+    /* Animações */
+    .fade-in {
+        animation: fadeIn 0.3s ease-in-out;
+    }
+    @keyframes fadeIn {
+        from { opacity: 0; transform: translateY(10px); }
+        to { opacity: 1; transform: translateY(0); }
+    }
+
+    .shimmer {
+        background: linear-gradient(90deg, transparent, rgba(255,255,255,0.1), transparent);
+        background-size: 200% 100%;
+        animation: shimmer 1.5s infinite;
+    }
+    @keyframes shimmer {
+        0% { background-position: 200% 0; }
+        100% { background-position: -200% 0; }
+    }
+    
+    /* Flatpickr Customization */
+    .flatpickr-calendar {
+        font-family: 'Inter', sans-serif;
+        border: none !important;
+        box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.3) !important;
+        background: #18181b !important; /* Zinc 900 */
+    }
+    .flatpickr-day.selected {
+        background: #10b981 !important; /* Emerald 500 */
+        border-color: #10b981 !important;
+    }
+    
+    /* Preview de Imagem */
+    .image-preview-container {
+        position: relative;
+        width: 100%;
+        height: 180px;
+        border: 2px dashed;
+        border-radius: 0.75rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        overflow: hidden;
+        cursor: pointer;
+        transition: all 0.2s;
+    }
+    .image-preview-container:hover {
+        opacity: 0.8;
+    }
+    .image-preview {
+        width: 100%;
+        height: 100%;
+        object-fit: contain;
+    }
+    
+    /* AI Markdown Styles */
+    .prose-invert h1, .prose-invert h2, .prose-invert h3 { color: #e4e4e7; font-weight: 600; margin-top: 1em; margin-bottom: 0.5em; }
+    .prose-invert p { margin-bottom: 0.8em; line-height: 1.6; }
+    .prose-invert ul { list-style-type: disc; padding-left: 1.5em; margin-bottom: 0.8em; }
+    .prose-invert strong { color: #10b981; }
+  </style>
+</head>
+<body class="bg-black text-zinc-100 antialiased selection:bg-emerald-500 selection:text-white">
+
+  <!-- ========================================== -->
+  <!-- TELA DE AUTENTICAÇÃO -->
+  <!-- ========================================== -->
+  <div id="auth-container" class="min-h-screen flex items-center justify-center p-6 relative overflow-hidden bg-black">
+    <div class="absolute inset-0 overflow-hidden">
+        <div class="absolute -top-[20%] -left-[10%] w-[500px] h-[500px] bg-zinc-800/20 rounded-full blur-[100px]"></div>
+        <div class="absolute top-[20%] right-[10%] w-[300px] h-[300px] bg-emerald-900/10 rounded-full blur-[80px]"></div>
+    </div>
+
+    <div class="w-full max-w-md bg-zinc-900 border border-zinc-800 p-8 rounded-2xl shadow-2xl fade-in relative z-10">
+      <div id="login-view">
+        <div class="text-center mb-8">
+            <div class="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-zinc-800 text-emerald-500 mb-4 border border-zinc-700">
+                <i class="fas fa-key text-xl"></i>
+            </div>
+            <h2 class="text-3xl font-bold tracking-tight text-white">KeY Invest</h2>
+            <p class="text-zinc-400 mt-2 text-sm">Gestão de ativos com Inteligência Artificial</p>
+        </div>
+        
+        <form id="login-form" class="space-y-5">
+          <div>
+              <label class="block text-xs font-medium text-zinc-500 uppercase tracking-wider mb-1">Utilizador</label>
+              <input id="login-username" name="username" type="text" required class="w-full px-4 py-3 bg-black border border-zinc-700 rounded-xl focus:ring-1 focus:ring-emerald-500 outline-none text-white placeholder-zinc-600" placeholder="Nome de usuário">
+          </div>
+          <div>
+              <label class="block text-xs font-medium text-zinc-500 uppercase tracking-wider mb-1">Senha</label>
+              <input id="login-password" name="password" type="password" required class="w-full px-4 py-3 bg-black border border-zinc-700 rounded-xl focus:ring-1 focus:ring-emerald-500 outline-none text-white placeholder-zinc-600" placeholder="••••••••">
+          </div>
+          <p id="login-error" class="text-red-400 text-xs text-center hidden bg-red-900/20 py-2 rounded-lg border border-red-900/30"></p>
+          <button type="submit" class="w-full py-3.5 px-4 bg-zinc-100 hover:bg-white text-black font-bold rounded-xl shadow-lg transition-all transform hover:scale-[1.01] active:scale-[0.99]">Entrar</button>
+        </form>
+        <p class="mt-8 text-center text-sm text-zinc-500">Não tem conta? <button id="show-register-btn" class="text-emerald-500 hover:text-emerald-400 font-medium ml-1">Criar agora</button></p>
+      </div>
+
+      <div id="register-view" class="hidden">
+        <div class="text-center mb-8">
+             <div class="inline-flex items-center justify-center w-12 h-12 rounded-xl bg-zinc-800 text-blue-500 mb-4 border border-zinc-700"><i class="fas fa-user-plus text-xl"></i></div>
+            <h2 class="text-3xl font-bold tracking-tight text-white">Criar Conta</h2>
+        </div>
+        <form id="register-form" class="space-y-5">
+          <div>
+              <label class="block text-xs font-medium text-zinc-500 uppercase tracking-wider mb-1">Novo Utilizador</label>
+              <input id="register-username" name="username" type="text" required class="w-full px-4 py-3 bg-black border border-zinc-700 rounded-xl focus:ring-1 focus:ring-blue-500 outline-none text-white" placeholder="Escolha um nome">
+          </div>
+          <div>
+              <label class="block text-xs font-medium text-zinc-500 uppercase tracking-wider mb-1">Senha</label>
+              <input id="register-password" name="password" type="password" required class="w-full px-4 py-3 bg-black border border-zinc-700 rounded-xl focus:ring-1 focus:ring-blue-500 outline-none text-white" placeholder="Senha segura">
+          </div>
+          <p id="register-error" class="text-red-400 text-xs text-center hidden bg-red-900/20 py-2 rounded-lg border border-red-900/30"></p>
+          <button type="submit" class="w-full py-3.5 px-4 bg-zinc-100 hover:bg-white text-black font-bold rounded-xl shadow-lg transition-all transform hover:scale-[1.01] active:scale-[0.99]">Cadastrar</button>
+        </form>
+        <p class="mt-8 text-center text-sm text-zinc-500">Já tem conta? <button id="show-login-btn" class="text-blue-500 hover:text-blue-400 font-medium ml-1">Fazer Login</button></p>
+      </div>
+    </div>
+  </div>
+
+  <!-- ========================================== -->
+  <!-- APLICAÇÃO PRINCIPAL -->
+  <!-- ========================================== -->
+  <div id="app-container" class="hidden flex flex-col min-h-screen transition-colors duration-300">
+    
+    <nav class="sticky top-0 z-30 backdrop-blur-md border-b transition-colors duration-300" id="main-nav">
+        <div class="container mx-auto px-4 h-16 flex items-center justify-between">
+            <div class="flex items-center gap-3">
+                <div class="w-8 h-8 rounded bg-zinc-800 border border-zinc-700 flex items-center justify-center text-emerald-500 shadow-sm">
+                    <i class="fas fa-chart-line text-sm"></i>
+                </div>
+                <h1 class="text-xl font-bold tracking-wide text-zinc-100">KeY <span class="font-light text-zinc-500">Invest</span></h1>
+            </div>
+
+            <div class="flex items-center gap-2 md:gap-4">
+                <button id="theme-toggle-btn" class="w-9 h-9 rounded-full flex items-center justify-center transition-colors hover:bg-zinc-800 text-zinc-400 focus:outline-none" title="Alterar Tema">
+                    <i class="fas fa-moon" id="theme-icon"></i>
+                </button>
+                <div class="h-6 w-px bg-zinc-800 mx-1"></div>
+                <div class="flex items-center gap-3">
+                    <span class="hidden md:block text-sm font-medium text-zinc-400" id="user-display">Usuário</span>
+                    <button id="logout-btn" class="text-xs bg-red-900/10 text-red-500 hover:bg-red-900/20 px-3 py-1.5 rounded border border-red-900/20 transition-all font-medium">Sair</button>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <main class="flex-grow container mx-auto px-4 py-8 max-w-7xl space-y-8 fade-in">
+        
+        <!-- Dashboard Header / Stats -->
+        <div class="flex justify-between items-end mb-2">
+            <h2 class="text-lg font-semibold text-zinc-400">Visão Geral</h2>
+            <button onclick="analyzePortfolioWithAI()" id="btn-ai-analyze" class="bg-gradient-to-r from-indigo-600 to-purple-600 hover:from-indigo-500 hover:to-purple-500 text-white px-4 py-2 rounded-lg shadow-lg text-sm font-bold transition-all hover:scale-105 active:scale-95 flex items-center gap-2 border border-indigo-500/30">
+                <i class="fas fa-magic"></i> <span>Análise AI</span>
+            </button>
+        </div>
+        <header id="header-container" class="grid grid-cols-1 md:grid-cols-3 gap-6"></header>
+
+        <!-- Controles de Mês e Ano -->
+        <section id="controls-container" class="space-y-4"></section>
+
+        <!-- Gráfico -->
+        <section id="chart-section" class="hidden md:block transition-all duration-300">
+             <div class="card-base p-6 rounded-xl border transition-all duration-300">
+                <div class="flex justify-between items-center mb-4">
+                    <h3 class="text-lg font-semibold card-title">Performance Diária</h3>
+                    <span class="text-xs px-2 py-1 rounded bg-zinc-800 text-zinc-400 border border-zinc-700" id="chart-period-label">Mês Atual</span>
+                </div>
+                <div class="h-64 w-full">
+                    <canvas id="profit-chart"></canvas>
+                </div>
+             </div>
+        </section>
+
+        <!-- Tabela de Itens -->
+        <section class="space-y-4">
+            <div class="flex justify-between items-end">
+                <h3 class="text-xl font-bold card-title">Transações</h3>
+                <button onclick="openModal('item')" class="bg-zinc-100 hover:bg-white text-black px-4 py-2 rounded-lg shadow-lg text-sm font-bold transition-all hover:scale-105 active:scale-95 flex items-center gap-2">
+                    <i class="fas fa-plus"></i> <span>Novo Item</span>
+                </button>
+            </div>
+            <div id="table-container"></div>
+        </section>
+    </main>
+
+    <footer class="border-t py-8 mt-8 transition-colors duration-300 footer-base">
+        <div class="container mx-auto px-4 text-center">
+            <p class="text-sm opacity-50">&copy; <span id="current-year-footer"></span> KeY Invest. Powered by Gemini.</p>
+        </div>
+    </footer>
+  </div>
+
+  <!-- Modal Container -->
+  <div id="modal-container"></div>
+  
+  <!-- AI Result Modal (Hidden by default) -->
+  <div id="ai-modal" class="fixed inset-0 z-[60] flex items-center justify-center p-4 bg-black/90 backdrop-blur-md hidden opacity-0 transition-opacity duration-300">
+      <div class="w-full max-w-2xl bg-zinc-900 border border-indigo-500/30 rounded-2xl shadow-2xl overflow-hidden transform scale-95 transition-transform duration-300" id="ai-modal-content">
+          <div class="bg-gradient-to-r from-indigo-900/50 to-purple-900/50 p-4 border-b border-indigo-500/20 flex justify-between items-center">
+              <h3 class="text-xl font-bold text-white flex items-center gap-2"><i class="fas fa-robot text-indigo-400"></i> Insight do Gemini</h3>
+              <button onclick="closeAiModal()" class="text-zinc-400 hover:text-white"><i class="fas fa-times"></i></button>
+          </div>
+          <div class="p-6 max-h-[70vh] overflow-y-auto prose-invert text-zinc-300" id="ai-result-text">
+              <!-- Content goes here -->
+          </div>
+          <div class="p-4 border-t border-zinc-800 flex justify-end">
+              <button onclick="closeAiModal()" class="px-5 py-2 rounded-lg bg-zinc-800 hover:bg-zinc-700 text-white transition-colors">Fechar</button>
+          </div>
+      </div>
+  </div>
+
+  <!-- Javascript Logic -->
+  <script>
+    // --- GEMINI API CONFIGURATION ---
+    const apiKey = ""; // Será injetado pelo ambiente
+    
+    async function callGeminiAPI(prompt, systemInstruction = "") {
+        if (!apiKey) {
+            alert("API Key não configurada. O ambiente irá injetá-la automaticamente.");
+            return "Erro: API Key não encontrada.";
+        }
+
+        const url = `https://generativelanguage.googleapis.com/v1beta/models/gemini-2.5-flash-preview-09-2025:generateContent?key=${apiKey}`;
+        
+        const payload = {
+            contents: [{ parts: [{ text: prompt }] }],
+            systemInstruction: { parts: [{ text: systemInstruction }] }
+        };
+
+        try {
+            const response = await fetch(url, {
+                method: 'POST',
+                headers: { 'Content-Type': 'application/json' },
+                body: JSON.stringify(payload)
+            });
+
+            if (!response.ok) {
+                const errorData = await response.json();
+                console.error("Gemini API Error:", errorData);
+                throw new Error(`Erro na API: ${response.status}`);
+            }
+
+            const data = await response.json();
+            return data.candidates?.[0]?.content?.parts?.[0]?.text || "Não foi possível gerar uma resposta.";
+        } catch (error) {
+            console.error(error);
+            return "Desculpe, ocorreu um erro ao conectar com a IA. Tente novamente mais tarde.";
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', () => {
+      // --- ESTADO & CONFIG ---
+      const themes = {
+          dark: {
+              body: 'bg-black text-zinc-100',
+              nav: 'bg-black/80 border-zinc-800 text-zinc-100',
+              card: 'bg-[#0f0f10] border-zinc-800', 
+              cardTitle: 'text-zinc-100',
+              input: 'bg-black border-zinc-800 text-white focus:ring-emerald-600 focus:border-emerald-600',
+              tableHeader: 'bg-zinc-900 text-zinc-500 border-b border-zinc-800',
+              tableRow: 'border-b border-zinc-800 hover:bg-zinc-900/50',
+              tableText: 'text-zinc-300',
+              footer: 'border-zinc-800 text-zinc-600',
+              chartGrid: 'rgba(255, 255, 255, 0.03)',
+              chartText: '#52525b',
+              tabActive: 'bg-zinc-100 text-black font-bold shadow-md',
+              tabInactive: 'bg-zinc-900 text-zinc-500 border border-zinc-800 hover:text-zinc-300 hover:border-zinc-700',
+              accentText: 'text-emerald-500'
+          },
+          light: {
+              body: 'bg-zinc-50 text-zinc-800',
+              nav: 'bg-white/80 border-zinc-200 text-zinc-800',
+              card: 'bg-white border-zinc-200 shadow-sm',
+              cardTitle: 'text-zinc-800',
+              input: 'bg-white border-zinc-300 text-zinc-900 focus:ring-emerald-500',
+              tableHeader: 'bg-zinc-50 text-zinc-500 border-b border-zinc-200',
+              tableRow: 'border-b border-zinc-100 hover:bg-zinc-50',
+              tableText: 'text-zinc-600',
+              footer: 'border-zinc-200 text-zinc-400',
+              chartGrid: 'rgba(0, 0, 0, 0.05)',
+              chartText: '#71717a',
+              tabActive: 'bg-zinc-800 text-white shadow-md',
+              tabInactive: 'bg-white border border-zinc-200 text-zinc-500 hover:bg-zinc-50 hover:text-zinc-700',
+              accentText: 'text-emerald-600'
+          }
+      };
+
+      let state = {
+          currentUser: null,
+          items: [],
+          settings: { theme: 'dark', monthlyInvestments: {} },
+          view: { year: new Date().getFullYear(), month: new Date().getMonth() + 1, sortBy: 'date_desc' },
+          ui: { modalOpen: false, modalType: null, editingId: null, chartInstance: null }
+      };
+
+      const DB_VERSION = 'v12_black_ai'; 
+      const getDB = (key) => JSON.parse(localStorage.getItem(key + DB_VERSION)) || {};
+      const saveDB = (key, data) => localStorage.setItem(key + DB_VERSION, JSON.stringify(data));
+      
+      async function hashPassword(str) {
+          const buf = await crypto.subtle.digest("SHA-256", new TextEncoder().encode(str));
+          return Array.from(new Uint8Array(buf)).map(b => b.toString(16).padStart(2, "0")).join("");
+      }
+
+      const formatCurrency = (val) => new Intl.NumberFormat('pt-BR', { style: 'currency', currency: 'BRL' }).format(val || 0);
+      const parseDate = (str) => {
+          if(!str) return null;
+          const [d, t] = str.split(' ');
+          const [day, month, year] = d.split('/');
+          return new Date(`${year}-${month}-${day}T${t || '00:00'}:00`);
+      };
+
+      // --- AUTENTICAÇÃO ---
+      function checkSession() {
+          const user = sessionStorage.getItem('currentUser_' + DB_VERSION);
+          if (user) login(user);
+          else {
+              document.getElementById('auth-container').classList.remove('hidden');
+              document.getElementById('app-container').classList.add('hidden');
+              applyTheme('dark');
+          }
+      }
+
+      function login(username) {
+          state.currentUser = username;
+          sessionStorage.setItem('currentUser_' + DB_VERSION, username);
+          
+          const users = getDB('users');
+          const investments = getDB('investments');
+          
+          state.settings = users[username]?.settings || { theme: 'dark', monthlyInvestments: {} };
+          state.items = investments[username] || [];
+
+          if (state.items.length === 0) { state.items = getExampleItems(); saveItems(); }
+
+          document.getElementById('auth-container').classList.add('hidden');
+          document.getElementById('app-container').classList.remove('hidden');
+          document.getElementById('user-display').textContent = username;
+          
+          applyTheme(state.settings.theme);
+          render();
+      }
+
+      function logout() { sessionStorage.removeItem('currentUser_' + DB_VERSION); window.location.reload(); }
+
+      // Event Listeners Auth
+      document.getElementById('login-form').addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const u = document.getElementById('login-username').value.trim();
+          const p = document.getElementById('login-password').value;
+          const users = getDB('users');
+          if (!users[u] || users[u].passwordHash !== await hashPassword(p)) {
+              document.getElementById('login-error').textContent = 'Credenciais inválidas.';
+              document.getElementById('login-error').classList.remove('hidden');
+              return;
+          }
+          login(u);
+      });
+
+      document.getElementById('register-form').addEventListener('submit', async (e) => {
+          e.preventDefault();
+          const u = document.getElementById('register-username').value.trim();
+          const p = document.getElementById('register-password').value;
+          const users = getDB('users');
+          if (users[u]) {
+              document.getElementById('register-error').textContent = 'Usuário já existe.';
+              document.getElementById('register-error').classList.remove('hidden');
+              return;
+          }
+          users[u] = { passwordHash: await hashPassword(p), settings: { theme: 'dark', monthlyInvestments: {} } };
+          saveDB('users', users);
+          login(u);
+      });
+
+      document.getElementById('show-register-btn').addEventListener('click', (e) => { e.preventDefault(); document.getElementById('login-view').classList.add('hidden'); document.getElementById('register-view').classList.remove('hidden'); });
+      document.getElementById('show-login-btn').addEventListener('click', (e) => { e.preventDefault(); document.getElementById('register-view').classList.add('hidden'); document.getElementById('login-view').classList.remove('hidden'); });
+      document.getElementById('logout-btn').addEventListener('click', logout);
+
+      // --- LÓGICA DO APP ---
+      function saveItems() { const allInv = getDB('investments'); allInv[state.currentUser] = state.items; saveDB('investments', allInv); }
+      function saveSettings() { const allUsers = getDB('users'); if(allUsers[state.currentUser]) { allUsers[state.currentUser].settings = state.settings; saveDB('users', allUsers); } }
+
+      function applyTheme(themeName) {
+          const t = themes[themeName];
+          document.body.className = `${t.body} antialiased selection:bg-emerald-500 selection:text-white transition-colors duration-300`;
+          document.getElementById('main-nav').className = `sticky top-0 z-30 backdrop-blur-md border-b transition-colors duration-300 ${t.nav}`;
+          document.querySelector('footer').className = `border-t py-8 mt-12 transition-colors duration-300 ${t.footer}`;
+          document.getElementById('theme-icon').className = themeName === 'dark' ? 'fas fa-sun text-zinc-400' : 'fas fa-moon text-zinc-600';
+          document.querySelectorAll('.card-base').forEach(el => el.className = `card-base p-6 rounded-xl border transition-all duration-300 ${t.card}`);
+          render();
+      }
+
+      document.getElementById('theme-toggle-btn').addEventListener('click', () => {
+          state.settings.theme = state.settings.theme === 'dark' ? 'light' : 'dark';
+          saveSettings();
+          applyTheme(state.settings.theme);
+      });
+
+      // --- AI FEATURES LOGIC ---
+      window.openAiModal = (content) => {
+          const modal = document.getElementById('ai-modal');
+          const modalContent = document.getElementById('ai-modal-content');
+          const resultText = document.getElementById('ai-result-text');
+          
+          resultText.innerHTML = marked.parse(content);
+          
+          modal.classList.remove('hidden');
+          // Trigger animation
+          setTimeout(() => {
+              modal.classList.remove('opacity-0');
+              modalContent.classList.remove('scale-95');
+              modalContent.classList.add('scale-100');
+          }, 10);
+      };
+
+      window.closeAiModal = () => {
+          const modal = document.getElementById('ai-modal');
+          const modalContent = document.getElementById('ai-modal-content');
+          
+          modal.classList.add('opacity-0');
+          modalContent.classList.remove('scale-100');
+          modalContent.classList.add('scale-95');
+          
+          setTimeout(() => {
+              modal.classList.add('hidden');
+          }, 300);
+      };
+
+      window.analyzePortfolioWithAI = async () => {
+          const btn = document.getElementById('btn-ai-analyze');
+          const originalText = btn.innerHTML;
+          btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i> Analisando...`;
+          btn.disabled = true;
+
+          const monthItems = state.items.filter(i => {
+              const d = parseDate(i.purchaseDate);
+              return d && d.getFullYear() === state.view.year && (d.getMonth() + 1) === state.view.month;
+          });
+
+          if(monthItems.length === 0) {
+              openAiModal("Não há dados suficientes neste mês para uma análise. Adicione alguns itens primeiro.");
+              btn.innerHTML = originalText;
+              btn.disabled = false;
+              return;
+          }
+
+          let totalInvested = 0;
+          let totalSold = 0;
+          let profit = 0;
+          const itemsList = monthItems.map(i => {
+              totalInvested += (i.unitPurchasePrice * i.quantity);
+              if(i.status === 'Vendido') {
+                  const sale = (i.unitSalePrice || 0) * i.quantity;
+                  totalSold += sale;
+                  profit += (sale - (i.unitPurchasePrice * i.quantity));
+              }
+              return `- ${i.itemName} (Qtd: ${i.quantity}, Status: ${i.status}, Lucro: R$ ${i.status === 'Vendido' ? ((i.unitSalePrice||0) - i.unitPurchasePrice)*i.quantity : 'N/A'})`;
+          }).join('\n');
+
+          const prompt = `
+            Você é um consultor financeiro especialista em mercado de skins (CS:GO/Counter-Strike) e investimentos digitais.
+            Analise os dados deste mês (${state.view.month}/${state.view.year}):
+            
+            - Total Investido: R$ ${totalInvested.toFixed(2)}
+            - Total Vendido: R$ ${totalSold.toFixed(2)}
+            - Lucro Realizado: R$ ${profit.toFixed(2)}
+            
+            Lista de Itens:
+            ${itemsList}
+
+            Forneça uma análise curta (máximo 3 parágrafos) em Português.
+            Destaque pontos positivos e sugira onde melhorar. Seja encorajador mas realista.
+            Use formatação Markdown para deixar o texto bonito (negrito, listas).
+          `;
+
+          const result = await callGeminiAPI(prompt, "Você é um assistente financeiro útil e conciso.");
+          openAiModal(result);
+          
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+      };
+
+      window.generateDescriptionWithAI = async () => {
+          const btn = document.getElementById('btn-ai-desc');
+          const nameInput = document.querySelector('input[name="itemName"]');
+          const priceInput = document.querySelector('input[name="unitSalePrice"]');
+          const descInput = document.querySelector('textarea[name="description"]');
+          
+          if(!nameInput.value) {
+              alert("Preencha o nome do item primeiro.");
+              return;
+          }
+
+          const originalText = btn.innerHTML;
+          btn.innerHTML = `<i class="fas fa-circle-notch fa-spin"></i>`;
+          btn.disabled = true;
+
+          const prompt = `
+            Escreva uma descrição de venda curta, atraente e profissional para um marketplace de skins/jogos.
+            Item: ${nameInput.value}
+            Preço de Venda: R$ ${priceInput.value || "Negociável"}
+            
+            A descrição deve ter no máximo 2-3 frases. Use emojis. Foque em raridade ou bom negócio.
+            Responda APENAS com a descrição, sem aspas.
+          `;
+
+          const result = await callGeminiAPI(prompt, "Você é um copywriter de vendas experiente.");
+          descInput.value = result.trim();
+          
+          btn.innerHTML = originalText;
+          btn.disabled = false;
+      };
+
+      // --- RENDER ---
+      function render() {
+          renderHeader();
+          renderControls();
+          renderTable();
+          renderChart();
+          document.getElementById('current-year-footer').textContent = new Date().getFullYear();
+      }
+
+      function renderHeader() {
+          const t = themes[state.settings.theme];
+          const container = document.getElementById('header-container');
+          
+          const periodKey = `${state.view.year}-${String(state.view.month).padStart(2, '0')}`;
+          const manualInv = state.settings.monthlyInvestments[periodKey] || 0;
+          
+          const monthItems = state.items.filter(i => {
+              const d = parseDate(i.purchaseDate);
+              return d && d.getFullYear() === state.view.year && (d.getMonth() + 1) === state.view.month;
+          });
+
+          let realizedProfit = 0;
+          monthItems.forEach(i => {
+              if(i.status === 'Vendido' && i.unitSalePrice) {
+                  realizedProfit += ((i.unitSalePrice * i.quantity) - (i.unitPurchasePrice * i.quantity));
+              }
+          });
+
+          const totalBalance = manualInv + realizedProfit;
+
+          const cards = [
+              { title: 'Investimento Mensal', value: formatCurrency(manualInv), icon: 'fa-wallet', color: 'text-blue-500', bgIcon: 'bg-blue-500/10 border-blue-500/20', action: 'edit-invest' },
+              { title: 'Lucro Realizado', value: formatCurrency(realizedProfit), icon: 'fa-arrow-trend-up', color: realizedProfit >= 0 ? 'text-emerald-500' : 'text-red-500', bgIcon: realizedProfit >= 0 ? 'bg-emerald-500/10 border-emerald-500/20' : 'bg-red-500/10 border-red-500/20' },
+              { title: 'Saldo Final', value: formatCurrency(totalBalance), icon: 'fa-scale-balanced', color: 'text-violet-500', bgIcon: 'bg-violet-500/10 border-violet-500/20' }
+          ];
+
+          container.innerHTML = cards.map(c => `
+              <div class="card-base p-6 rounded-xl border transition-all duration-300 ${t.card} flex items-center justify-between group hover:border-zinc-700">
+                  <div>
+                      <p class="text-xs font-bold uppercase tracking-wider opacity-50 mb-1 flex items-center gap-2 ${t.cardTitle}">
+                          ${c.title} ${c.action ? `<button id="btn-${c.action}" class="hover:text-emerald-400 transition-colors"><i class="fas fa-edit"></i></button>` : ''}
+                      </p>
+                      <h2 class="text-2xl font-bold ${t.cardTitle}">${c.value}</h2>
+                  </div>
+                  <div class="w-12 h-12 rounded-lg border ${c.bgIcon} ${c.color} flex items-center justify-center text-xl shadow-sm"><i class="fas ${c.icon}"></i></div>
+              </div>
+          `).join('');
+
+          document.getElementById('btn-edit-invest')?.addEventListener('click', () => openModal('investment'));
+      }
+
+      function renderControls() {
+          const t = themes[state.settings.theme];
+          const container = document.getElementById('controls-container');
+          
+          const months = ["Jan", "Fev", "Mar", "Abr", "Mai", "Jun", "Jul", "Ago", "Set", "Out", "Nov", "Dez"];
+          const currentYear = new Date().getFullYear();
+          const years = [currentYear - 1, currentYear, currentYear + 1].sort((a,b) => b-a);
+          if(!years.includes(state.view.year)) years.push(state.view.year);
+
+          const monthsHtml = months.map((m, idx) => {
+              const monthNum = idx + 1;
+              const isActive = monthNum === state.view.month;
+              return `<button onclick="changeMonth(${monthNum})" class="flex-shrink-0 px-6 py-2 rounded-lg text-sm transition-all duration-200 snap-center ${isActive ? t.tabActive : t.tabInactive}">${m}</button>`;
+          }).join('');
+
+          const yearsOptions = years.map(y => `<option value="${y}" ${y === state.view.year ? 'selected' : ''}>${y}</option>`).join('');
+
+          container.innerHTML = `
+            <div class="flex flex-col md:flex-row gap-4 items-center justify-between">
+                <div class="w-full md:w-auto flex-1 overflow-hidden">
+                    <div class="flex items-center gap-2 overflow-x-auto hide-scrollbar pb-1 snap-x" id="months-scroll">${monthsHtml}</div>
+                </div>
+                <div class="flex items-center gap-3 w-full md:w-auto justify-end">
+                    <div class="relative">
+                        <select id="year-select" class="appearance-none pl-4 pr-10 py-2 rounded-lg text-sm font-bold cursor-pointer outline-none focus:ring-1 focus:ring-emerald-500 transition-colors ${t.input}">${yearsOptions}</select>
+                        <div class="absolute inset-y-0 right-0 flex items-center px-3 pointer-events-none opacity-50"><i class="fas fa-chevron-down text-xs"></i></div>
+                    </div>
+                </div>
+            </div>`;
+
+          document.getElementById('year-select').addEventListener('change', (e) => { state.view.year = parseInt(e.target.value); render(); });
+      }
+
+      window.changeMonth = (m) => { state.view.month = m; render(); };
+
+      function renderTable() {
+          const t = themes[state.settings.theme];
+          const container = document.getElementById('table-container');
+          
+          let filtered = state.items.filter(i => {
+              const d = parseDate(i.purchaseDate);
+              return d && d.getFullYear() === state.view.year && (d.getMonth() + 1) === state.view.month;
+          });
+          filtered.sort((a, b) => parseDate(b.purchaseDate) - parseDate(a.purchaseDate));
+
+          if (filtered.length === 0) {
+              container.innerHTML = `<div class="flex flex-col items-center justify-center py-20 text-center opacity-40 border border-dashed border-zinc-800 rounded-xl bg-zinc-900/20"><i class="fas fa-box-open text-4xl mb-4"></i><p>Nenhum registro em ${state.view.month}/${state.view.year}</p></div>`;
+              return;
+          }
+
+          const rows = filtered.map(item => {
+              const totalCost = item.unitPurchasePrice * item.quantity;
+              let profit = 0, profitClass = "text-zinc-500", profitPercent = 0;
+
+              if (item.status === 'Vendido' && item.unitSalePrice) {
+                  const totalSale = item.unitSalePrice * item.quantity;
+                  profit = totalSale - totalCost;
+                  profitPercent = (profit / totalCost) * 100;
+                  profitClass = profit >= 0 ? "text-emerald-500" : "text-red-500";
+              }
+
+              const statusColors = { 'Trade Lock': 'bg-yellow-900/20 text-yellow-500 border-yellow-900/30', 'Liberado': 'bg-blue-900/20 text-blue-500 border-blue-900/30', 'Vendido': 'bg-emerald-900/20 text-emerald-500 border-emerald-900/30' };
+              const statusBadge = `<span class="px-2.5 py-1 rounded text-xs font-medium border ${statusColors[item.status] || 'bg-zinc-800 text-zinc-500'}">${item.status}</span>`;
+
+              return `
+                <tr class="group transition-colors ${t.tableRow}">
+                    <td class="px-4 py-4 whitespace-nowrap"><div class="flex items-center"><div class="h-10 w-10 flex-shrink-0 rounded bg-zinc-800 border border-zinc-700 overflow-hidden"><img src="${item.imageUrl || 'https://via.placeholder.com/150'}" class="h-full w-full object-cover"></div><div class="ml-3"><div class="text-sm font-medium ${t.cardTitle}">${item.itemName}</div><div class="text-xs opacity-50">${item.purchaseDate.split(' ')[0]}</div></div></div></td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm ${t.tableText}"><div class="flex flex-col"><span>${formatCurrency(item.unitPurchasePrice)}</span><span class="text-xs opacity-50">x${item.quantity}</span></div></td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm ${t.tableText}">${item.unitSalePrice ? formatCurrency(item.unitSalePrice) : '-'}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-sm font-medium ${profitClass}">${item.status === 'Vendido' ? `<div>${formatCurrency(profit)}</div><div class="text-xs opacity-70">${profitPercent.toFixed(1)}%</div>` : '-'}</td>
+                    <td class="px-4 py-4 whitespace-nowrap">${statusBadge}</td>
+                    <td class="px-4 py-4 whitespace-nowrap text-right text-sm font-medium"><button onclick="editItem('${item.id}')" class="text-zinc-500 hover:text-blue-400 mx-2 transition-colors"><i class="fas fa-pen"></i></button><button onclick="deleteItem('${item.id}')" class="text-zinc-500 hover:text-red-400 transition-colors"><i class="fas fa-trash"></i></button></td>
+                </tr>`;
+          }).join('');
+
+          container.innerHTML = `<div class="overflow-x-auto rounded-xl border border-zinc-800"><table class="min-w-full divide-y divide-zinc-800"><thead class="${t.tableHeader}"><tr><th class="px-4 py-3 text-left text-xs font-semibold uppercase">Ativo</th><th class="px-4 py-3 text-left text-xs font-semibold uppercase">Custo</th><th class="px-4 py-3 text-left text-xs font-semibold uppercase">Venda</th><th class="px-4 py-3 text-left text-xs font-semibold uppercase">Resultado</th><th class="px-4 py-3 text-left text-xs font-semibold uppercase">Status</th><th class="relative px-4 py-3"></th></tr></thead><tbody class="divide-y divide-zinc-800 ${state.settings.theme === 'light' ? 'bg-white' : 'bg-[#0f0f10]'}">${rows}</tbody></table></div>`;
+      }
+
+      window.editItem = (id) => openModal('item', id);
+      window.deleteItem = (id) => openModal('delete', id);
+      window.openModal = (type, id = null) => { state.ui.modalOpen = true; state.ui.modalType = type; state.ui.editingId = id; renderModalContent(type, id); };
+
+      function renderChart() {
+          const ctx = document.getElementById('profit-chart');
+          if(!ctx) return;
+          if(state.ui.chartInstance) state.ui.chartInstance.destroy();
+          
+          const daysInMonth = new Date(state.view.year, state.view.month, 0).getDate();
+          const labels = Array.from({length: daysInMonth}, (_, i) => i + 1);
+          const dataPoints = new Array(daysInMonth).fill(0);
+
+          state.items.forEach(item => {
+              if(item.status === 'Vendido' && item.saleDate) {
+                  const d = parseDate(item.saleDate);
+                  if(d && d.getFullYear() === state.view.year && (d.getMonth() + 1) === state.view.month) {
+                      dataPoints[d.getDate() - 1] += ((item.unitSalePrice - item.unitPurchasePrice) * item.quantity);
+                  }
+              }
+          });
+
+          const t = themes[state.settings.theme];
+          state.ui.chartInstance = new Chart(ctx, {
+              type: 'bar',
+              data: { labels: labels, datasets: [{ label: 'Lucro (R$)', data: dataPoints, backgroundColor: dataPoints.map(v => v >= 0 ? 'rgba(16, 185, 129, 0.8)' : 'rgba(239, 68, 68, 0.8)'), borderRadius: 2 }] },
+              options: { responsive: true, maintainAspectRatio: false, plugins: { legend: { display: false } }, scales: { y: { beginAtZero: true, grid: { color: t.chartGrid }, ticks: { color: t.chartText, callback: v => 'R$ ' + v } }, x: { grid: { display: false }, ticks: { color: t.chartText, maxTicksLimit: 15 } } } }
+          });
+          document.getElementById('chart-period-label').textContent = `${document.querySelectorAll('#months-scroll button')[state.view.month-1].innerText} / ${state.view.year}`;
+      }
+
+      // --- MODALS ---
+      function renderModalContent(type, id = null) {
+          const modalContainer = document.getElementById('modal-container');
+          const t = themes[state.settings.theme];
+          let content = '';
+
+          if (type === 'item') {
+              const item = id ? state.items.find(i => i.id === id) : {};
+              const isEdit = !!id;
+              const now = new Date();
+              const defaultDate = item.purchaseDate || `${now.getDate().toString().padStart(2,'0')}/${(now.getMonth()+1).toString().padStart(2,'0')}/${now.getFullYear()} ${now.getHours().toString().padStart(2,'0')}:${now.getMinutes().toString().padStart(2,'0')}`;
+
+              content = `
+                <div class="flex justify-between items-center mb-6">
+                    <h3 class="text-xl font-bold ${t.cardTitle}">${isEdit ? 'Editar Ativo' : 'Novo Ativo'}</h3>
+                    <button onclick="closeModal()" class="text-zinc-500 hover:text-white transition-colors"><i class="fas fa-times text-xl"></i></button>
+                </div>
+                <form id="item-form" class="space-y-4">
+                    <div class="flex justify-center mb-4">
+                        <div class="image-preview-container ${state.settings.theme === 'light' ? 'border-zinc-300 bg-zinc-50' : 'border-zinc-700 bg-black'}" id="img-drop-area">
+                            <img id="img-preview" src="${item.imageUrl || ''}" class="${item.imageUrl ? '' : 'hidden'} image-preview" draggable="false">
+                            <div id="img-placeholder" class="${item.imageUrl ? 'hidden' : 'flex'} flex-col items-center text-zinc-500">
+                                <i class="fas fa-cloud-upload-alt text-3xl mb-2"></i><span class="text-xs">Cole ou Arraste a imagem</span>
+                            </div>
+                            <input type="file" id="img-input" class="hidden" accept="image/*">
+                        </div>
+                    </div>
+                    <div class="grid grid-cols-2 gap-4">
+                        <div><label class="block text-xs uppercase tracking-wider text-zinc-500 mb-1">Nome do Item</label><input name="itemName" value="${item.itemName || ''}" required class="w-full px-3 py-2 rounded-lg outline-none border focus:ring-1 focus:ring-emerald-500 transition-colors ${t.input}" placeholder="Ex: AK-47"></div>
+                        <div><label class="block text-xs uppercase tracking-wider text-zinc-500 mb-1">Data Compra</label><input name="purchaseDate" value="${defaultDate}" required class="flatpickr-input w-full px-3 py-2 rounded-lg outline-none border focus:ring-1 focus:ring-emerald-500 transition-colors ${t.input}"></div>
+                    </div>
+                    <div class="grid grid-cols-3 gap-4">
+                        <div><label class="block text-xs uppercase tracking-wider text-zinc-500 mb-1">Qtd</label><input type="number" name="quantity" value="${item.quantity || 1}" min="1" required class="w-full px-3 py-2 rounded-lg outline-none border focus:ring-1 focus:ring-emerald-500 transition-colors ${t.input}"></div>
+                        <div><label class="block text-xs uppercase tracking-wider text-zinc-500 mb-1">Preço UN</label><input type="number" step="0.01" name="unitPurchasePrice" value="${item.unitPurchasePrice || ''}" required class="w-full px-3 py-2 rounded-lg outline-none border focus:ring-1 focus:ring-emerald-500 transition-colors ${t.input}"></div>
+                        <div><label class="block text-xs uppercase tracking-wider text-zinc-500 mb-1">Status</label><select name="status" class="w-full px-3 py-2 rounded-lg outline-none border focus:ring-1 focus:ring-emerald-500 transition-colors ${t.input}"><option ${item.status === 'Trade Lock' ? 'selected' : ''}>Trade Lock</option><option ${item.status === 'Liberado' ? 'selected' : ''}>Liberado</option><option ${item.status === 'Vendido' ? 'selected' : ''}>Vendido</option></select></div>
+                    </div>
+                    
+                    <div class="border-t border-zinc-800 pt-4 mt-2">
+                        <div class="grid grid-cols-2 gap-4 mb-4">
+                            <div><label class="block text-xs uppercase tracking-wider text-zinc-500 mb-1">Preço Venda (UN)</label><input type="number" step="0.01" name="unitSalePrice" value="${item.unitSalePrice || ''}" class="w-full px-3 py-2 rounded-lg outline-none border focus:ring-1 focus:ring-emerald-500 transition-colors ${t.input}" placeholder="Opcional"></div>
+                            <div><label class="block text-xs uppercase tracking-wider text-zinc-500 mb-1">Data Venda</label><input name="saleDate" value="${item.saleDate || ''}" class="flatpickr-input w-full px-3 py-2 rounded-lg outline-none border focus:ring-1 focus:ring-emerald-500 transition-colors ${t.input}" placeholder="--/--/----"></div>
+                        </div>
+                        
+                        <!-- AI DESCRIPTION FIELD -->
+                        <div>
+                            <div class="flex justify-between items-center mb-1">
+                                <label class="block text-xs uppercase tracking-wider text-zinc-500">Descrição / Notas de Venda</label>
+                                <button type="button" onclick="generateDescriptionWithAI()" id="btn-ai-desc" class="text-xs text-indigo-400 hover:text-indigo-300 flex items-center gap-1"><i class="fas fa-magic"></i> Gerar com AI</button>
+                            </div>
+                            <textarea name="description" rows="3" class="w-full px-3 py-2 rounded-lg outline-none border focus:ring-1 focus:ring-emerald-500 transition-colors ${t.input}" placeholder="Escreva aqui...">${item.description || ''}</textarea>
+                        </div>
+                    </div>
+
+                    <button type="submit" class="w-full py-3 bg-zinc-100 hover:bg-white text-black font-bold rounded-xl shadow-lg mt-4 transition-transform active:scale-95">Salvar</button>
+                </form>`;
+          } else if (type === 'delete') {
+              content = `<div class="text-center p-4"><div class="w-16 h-16 bg-red-900/20 text-red-500 rounded-full flex items-center justify-center mx-auto mb-4 text-2xl"><i class="fas fa-trash"></i></div><h3 class="text-xl font-bold ${t.cardTitle} mb-2">Excluir Item?</h3><p class="text-sm text-zinc-500 mb-6">Esta ação é irreversível.</p><div class="flex gap-3 justify-center"><button onclick="closeModal()" class="px-5 py-2 rounded-lg bg-zinc-800 text-zinc-300 hover:bg-zinc-700 transition-colors">Cancelar</button><button id="confirm-delete" class="px-5 py-2 rounded-lg bg-red-600 text-white hover:bg-red-500 transition-colors shadow-lg">Excluir</button></div></div>`;
+          } else if (type === 'investment') {
+              const periodKey = `${state.view.year}-${String(state.view.month).padStart(2, '0')}`;
+              const currentVal = state.settings.monthlyInvestments[periodKey] || '';
+              content = `<div class="flex justify-between items-center mb-6"><h3 class="text-xl font-bold ${t.cardTitle}">Investimento Meta</h3><button onclick="closeModal()" class="text-zinc-500 hover:text-white transition-colors"><i class="fas fa-times text-xl"></i></button></div><form id="investment-form"><label class="block text-xs uppercase tracking-wider text-zinc-500 mb-1">Valor para ${state.view.month}/${state.view.year}</label><input type="number" step="0.01" name="amount" value="${currentVal}" required autofocus class="w-full px-4 py-3 text-lg font-bold rounded-lg outline-none border focus:ring-1 focus:ring-blue-500 transition-colors ${t.input} mb-6"><button type="submit" class="w-full py-3 bg-blue-600 hover:bg-blue-500 text-white font-bold rounded-xl shadow-lg transition-transform active:scale-95">Definir</button></form>`;
+          }
+
+          modalContainer.innerHTML = `<div class="fixed inset-0 z-50 flex items-center justify-center p-4 bg-black/80 backdrop-blur-sm fade-in" id="modal-overlay"><div class="w-full max-w-md ${t.card} rounded-2xl shadow-2xl overflow-hidden relative transform transition-all scale-100 p-6 border border-zinc-800">${content}</div></div>`;
+          document.getElementById('modal-overlay').addEventListener('click', (e) => { if(e.target.id === 'modal-overlay') closeModal(); });
+          
+          if(type === 'item') setupItemFormScript();
+          if(type === 'delete') document.getElementById('confirm-delete').addEventListener('click', performDelete);
+          if(type === 'investment') document.getElementById('investment-form').addEventListener('submit', performInvestmentSave);
+          
+          flatpickr(".flatpickr-input", { enableTime: true, dateFormat: "d/m/Y H:i", time_24hr: true, locale: 'pt' });
+      }
+
+      window.closeModal = () => { state.ui.modalOpen = false; state.ui.modalType = null; state.ui.editingId = null; document.getElementById('modal-container').innerHTML = ''; };
+
+      function setupItemFormScript() {
+          const form = document.getElementById('item-form');
+          const dropArea = document.getElementById('img-drop-area');
+          const fileInput = document.getElementById('img-input');
+          const imgPreview = document.getElementById('img-preview');
+          const imgPlaceholder = document.getElementById('img-placeholder');
+
+          dropArea.addEventListener('click', () => fileInput.click());
+          fileInput.addEventListener('change', (e) => handleFile(e.target.files[0]));
+          document.addEventListener('paste', (e) => { if(!state.ui.modalOpen || state.ui.modalType !== 'item') return; const file = e.clipboardData.files[0]; if(file && file.type.startsWith('image/')) handleFile(file); });
+          function handleFile(file) { if(!file) return; const reader = new FileReader(); reader.onload = (e) => { imgPreview.src = e.target.result; imgPreview.classList.remove('hidden'); imgPlaceholder.classList.add('hidden'); }; reader.readAsDataURL(file); }
+
+          form.addEventListener('submit', (e) => {
+              e.preventDefault();
+              const fd = new FormData(form);
+              const newItem = {
+                  id: state.ui.editingId || 'item_' + Date.now(),
+                  itemName: fd.get('itemName'),
+                  purchaseDate: fd.get('purchaseDate'),
+                  quantity: parseInt(fd.get('quantity')),
+                  unitPurchasePrice: parseFloat(fd.get('unitPurchasePrice')),
+                  status: fd.get('status'),
+                  unitSalePrice: fd.get('unitSalePrice') ? parseFloat(fd.get('unitSalePrice')) : null,
+                  saleDate: fd.get('saleDate') || null,
+                  imageUrl: imgPreview.src.includes('base64') || imgPreview.src.includes('http') ? imgPreview.src : null,
+                  description: fd.get('description') // Save description
+              };
+              if(state.ui.editingId) { state.items = state.items.map(i => i.id === newItem.id ? { ...i, ...newItem } : i); } else { state.items.push(newItem); }
+              saveItems(); closeModal(); render();
+          });
+      }
+
+      function performDelete() { if(!state.ui.editingId) return; state.items = state.items.filter(i => i.id !== state.ui.editingId); saveItems(); closeModal(); render(); }
+      function performInvestmentSave(e) { e.preventDefault(); const val = parseFloat(e.target.amount.value); const periodKey = `${state.view.year}-${String(state.view.month).padStart(2, '0')}`; state.settings.monthlyInvestments[periodKey] = val; saveSettings(); closeModal(); render(); }
+      function getExampleItems() {
+          const m = new Date().getMonth() + 1, y = new Date().getFullYear();
+          return [{ id: 'ex1', itemName: 'AWP | Asiimov', purchaseDate: `05/${String(m).padStart(2,'0')}/${y} 14:00`, quantity: 1, unitPurchasePrice: 450.00, status: 'Liberado', imageUrl: 'https://steamcommunity-a.akamaihd.net/economy/image/-9a81dlWLwJ2UUGcVs_nsVtzdOEdtWwKGZZLQHTxDZ7I56KU0Zwwo4NUX4oFJZEHLbXH5ApeO4YmlhxYQknCRvCo04DEVlxkKgpot621FAR17PLfYQJD_9W7m5a0mvLwOq7c2D1SvpJzj-rF942t0VDg-hA6YzvzLdSWJlQ3N1zWr1m8l-u50J67vMzBz3Fk6SQm4XmJzEfk1B4eP_sv26Kq4Zwp4A/360fx360f', description: 'Skin icônica com visual futurista.' }];
+      }
+
+      checkSession();
+    });
+  </script>
+</body>
+</html>
